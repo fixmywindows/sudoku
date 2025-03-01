@@ -1,9 +1,9 @@
 import { create } from "zustand";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-type SudokuType = "numerical" | "colour" | "emoji" | "flags";
-type GridSize = 3 | 4 | 5 | 6 | 7 | 8 | 9;
-type Cell = number | string;
+export type SudokuType = "numerical" | "colour" | "emoji" | "flags";
+export type GridSize = 3 | 4 | 5 | 6 | 7 | 8 | 9;
+export type Cell = number | string;
 type Grid = Cell[][];
 
 interface GameState {
@@ -16,7 +16,7 @@ interface GameState {
   unlockedLevels: Record<SudokuType, GridSize[]>;
   gameWon: boolean;
   mistakes: number;
-  gameTime: number; // Seconds
+  gameTime: number;
   personalBest: Record<GridSize, number>;
   lastLogin: string | null;
   streakDay: number;
@@ -35,10 +35,9 @@ const unlockCosts: Record<GridSize, number> = { 3: 0, 4: 10, 5: 20, 6: 30, 7: 40
 const pointRewards: Record<GridSize, number> = { 3: 10, 4: 15, 5: 20, 6: 25, 7: 30, 8: 35, 9: 40 };
 
 function generateSudoku(type: SudokuType, size: GridSize) {
-  // Placeholder—assuming Rork updated this
   const grid = Array(size).fill(null).map(() => Array(size).fill(type === "numerical" ? 0 : ""));
   const solved = Array(size).fill(null).map(() => Array(size).fill(type === "numerical" ? 1 : "placeholder"));
-  return { grid, solved }; // Replace with actual generation logic
+  return { grid, solved }; // Replace with actual logic if Rork updated
 }
 
 export const useGameStore = create<GameState>((set, get) => {
@@ -101,8 +100,7 @@ export const useGameStore = create<GameState>((set, get) => {
     },
     useHint: () => set(state => {
       if (state.points >= 30) {
-        // Placeholder hint logic—e.g., reveal a cell
-        return { points: state.points - 30 };
+        return { points: state.points - 30 }; // Add hint logic here
       }
       return state;
     }),

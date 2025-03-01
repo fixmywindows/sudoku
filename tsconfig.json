@@ -2,14 +2,25 @@
   "compilerOptions": {
     "target": "esnext",
     "module": "commonjs",
-    "jsx": "react-native", // Fixes JSX errors
+    "jsx": "react-native",
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "baseUrl": ".", // Base for path aliases
+    "baseUrl": ".",
     "paths": {
-      "@/*": ["*"] // Maps @/ to root directory
+      "@/*": [
+        "*"
+      ]
     }
   },
-  "exclude": ["node_modules"]
+  "exclude": [
+    "node_modules"
+  ],
+  "extends": "expo/tsconfig.base",
+  "include": [
+    "**/*.ts",
+    "**/*.tsx",
+    ".expo/types/**/*.ts",
+    "expo-env.d.ts"
+  ]
 }

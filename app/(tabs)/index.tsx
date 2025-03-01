@@ -21,7 +21,7 @@ export default function Index() {
   }, []);
 
   const handleLevelPress = (type: SudokuType, size: GridSize) => {
-    if (unlockedLevels[type].includes(size)) {
+    if (unlockedLevels[type as keyof typeof unlockedLevels].includes(size)) {
       setTypeAndSize(type, size);
       router.push("/game");
     } else {
@@ -38,9 +38,9 @@ export default function Index() {
           {sizes.map((size) => (
             <Button
               key={size}
-              title={`${size}x${size}${unlockedLevels[sudoku.type].includes(size) ? "" : " (Locked)"}`}
+              title={`${size}x${size}${unlockedLevels[sudoku.type as keyof typeof unlockedLevels].includes(size) ? "" : " (Locked)"}`}
               onPress={() => handleLevelPress(sudoku.type, size)}
-              color={unlockedLevels[sudoku.type].includes(size) ? "#000" : "#888"}
+              color={unlockedLevels[sudoku.type as keyof typeof unlockedLevels].includes(size) ? "#000" : "#888"}
             />
           ))}
         </View>

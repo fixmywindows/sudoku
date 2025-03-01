@@ -1,9 +1,9 @@
 import { useGameStore, Cell } from "../store/game-store";
-import { FlatList, SafeAreaView, StyleSheet, Text, TouchableOpacity, View, Modal, Button } from "react-native";
+import { FlatList, SafeAreaView, StyleSheet, Text, TouchableOpacity, View, Modal, Button, Platform } from "react-native"; // Added Platform
 import { useState, useEffect } from "react";
 import Vibration from "react-native-vibration";
-import SuccessModal from "../components/SuccessModal"; // Adjusted path
-import TipModal from "../components/TipModal"; // Adjusted path
+import SuccessModal from "../components/SuccessModal";
+import TipModal from "../components/TipModal";
 
 export default function Game() {
   const { grid, setNumber, checkGame, type, size, mistakes, useHint } = useGameStore();
@@ -16,12 +16,12 @@ export default function Game() {
   }, []);
 
   useEffect(() => {
-    if (mistakes > 0) Vibration.vibrate(200);
+    if (mistakes > 0 && Platform.OS !== "web") Vibration.vibrate(200); // Skip on web
   }, [mistakes]);
 
   const renderCellValue = (cell: Cell) => {
     if (type === "numerical") return cell === 0 ? "" : cell;
-    if (type === "colour") return <View style={{ backgroundColor: cell || "transparent", width: 20, height: 20 }} />;
+    if (type === "colour") return <View style={{ backgroundColor: cell as string || "transparent", width: 20, height: 20 }} />;
     if (type === "emoji") return cell || "";
     if (type === "flags") return cell ? String.fromCodePoint(parseInt(cell as string, 16)) : "";
   };
@@ -66,7 +66,7 @@ export default function Game() {
             }}
             style={styles.numberButton}
           >
-            <Text style={styles.numberText}>{type === "colour" ? <View style={{ backgroundColor: value, width: 20, height: 20 }} /> : value}</Text>
+            <Text style={styles.numberText}>{type === "colour" ? <View style={{ backgroundColor: value as string, width: 20, height: 20 }} /> : value}</Text>
           </TouchableOpacity>
         ))}
       </View>

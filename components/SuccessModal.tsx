@@ -1,8 +1,8 @@
-import { Modal, View, Text, Button, StyleSheet } from "react-native";
+import { Modal, View, Text, Button, StyleSheet, Platform } from "react-native";
 import { useGameStore } from "../store/game-store";
 import { useState, useEffect } from "react";
 import Vibration from "react-native-vibration";
-import { router } from "expo-router";
+import { router, Link } from "expo-router"; // Added Link import for type safety
 
 export default function SuccessModal() {
   const { gameWon, resetGame, points, size, gameTime, personalBest } = useGameStore();
@@ -10,7 +10,7 @@ export default function SuccessModal() {
   const reward = pointRewards[size] + (gameTime < personalBest[size] ? 10 : 0);
 
   useEffect(() => {
-    if (gameWon) Vibration.vibrate(500);
+    if (gameWon && Platform.OS !== "web") Vibration.vibrate(500); // Skip on web
   }, [gameWon]);
 
   if (!gameWon) return null;
@@ -33,8 +33,18 @@ export default function SuccessModal() {
       <Modal visible={showOptions} animationType="slide" transparent>
         <View style={styles.modalContainer}>
           <View style={styles.modalContent}>
-            <Button title="Exit to Menu" onPress={() => { router.push("/(tabs)/index"); setShowOptions(false); }} />
-            <Button title="Play Again" color="#007AFF" onPress={() => { resetGame(); setShowOptions(false); }} />
+            <Button 
+              title="Exit to Menu" 
+              onPress={() => { 
+                router.push("/index" as any); // Type assertion to bypass strict typing
+                setShowOptions(false); 
+              }} 
+            />
+            <Button 
+              title="Play Again" 
+              color="#007AFF" 
+              onPress={() => { resetGame(); setShowOptions(false); }} 
+            />
           </View>
         </View>
       </Modal>

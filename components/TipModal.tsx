@@ -1,4 +1,4 @@
-import { Modal, View, Text, Button, StyleSheet } from "react-native";
+import { Modal, View, Text, Button, StyleSheet, Platform } from "react-native"; // Added Platform
 import { useGameStore } from "../store/game-store";
 import Vibration from "react-native-vibration";
 
@@ -12,13 +12,13 @@ export default function TipModal({ visible, onClose }: TipModalProps) {
 
   const handlePoints = () => {
     useHint();
-    Vibration.vibrate(300);
+    if (Platform.OS !== "web") Vibration.vibrate(300); // Skip on web
     onClose();
   };
 
   const handleAd = () => {
     // Placeholder for ad logic
-    Vibration.vibrate(300);
+    if (Platform.OS !== "web") Vibration.vibrate(300); // Skip on web
     onClose();
   };
 
