@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Coins, ShoppingCart } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -8,19 +8,55 @@ import { CATEGORIES } from '@/constants/game';
 import CategoryCard from '@/components/CategoryCard';
 import CustomAlert from '@/components/CustomAlert';
 import { useTheme } from '@/hooks/useTheme';
+import { AdMobRewarded } from 'expo-ads-admob';
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { points } = useGameStore();
+  const { points, unlockedGridSizes, unlockGridSize } = useGameStore();
   const { theme } = useTheme();
   const [pointsAlertVisible, setPointsAlertVisible] = useState(false);
-  
+
   const handlePointsPress = () => {
     setPointsAlertVisible(true);
   };
-  
+
+  const handleUnlockLevel = async (size: number) => {
+    if (unlockedGridSizes.numerical.includes(size as GridSize)) {
+      return;
+    }
+
+    Alert.alert(
+      'Unlock Level',
+      `Do you want to unlock ${size}x${size} Sudoku for points?`,
+      [
+        { text: 'Cancel' },
+        {
+          text: 'Use Points',
+          onPress: () => {
+            const success = unlockGridSize('numerical', size as GridSize);
+            if (success) {
+              Alert.alert('Level Unlocked', `${size}x${size} Sudoku is now available!`);
+            } else {
+              Alert.alert('Not Enough Points', `You need more points to unlock this level.`);
+            }
+          },
+        },
+        {
+          text: 'Watch Ad',
+          onPress: async () => {
+            await AdMobRewarded.setAdUnitID('your-rewarded-ad-unit-id');
+            await AdMobRewarded.requestAdAsync();
+            await AdMobRewarded.showAdAsync();
+            unlockGridSize('numerical', size as GridSize);
+            Alert.alert('Level Unlocked', `${size}x${size} Sudoku is now available!`);
+          },
+        },
+      ]
+    );
+  };
+
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.backgroundColor }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.backgroundColor }]}>  
       <View style={styles.header}>
         <TouchableOpacity
           style={[styles.pointsButton, { backgroundColor: theme.primaryColor }]}
@@ -44,12 +80,16 @@ export default function HomeScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={[styles.title, { color: theme.primaryColor }]}>
-          Choose Your Sudoku
-        </Text>
+        <Text style={[styles.title, { color: theme.primaryColor }]}>Choose Your Sudoku</Text>
         
         {CATEGORIES.map((category) => (
-          <CategoryCard key={category.id} category={category} />
+          <TouchableOpacity
+            key={category.id}
+            onPress={() => handleUnlockLevel(category.size as GridSize)}
+            disabled={unlockedGridSizes.numerical.includes(category.size as GridSize)}
+          >
+            <CategoryCard key={category.id} category={category} />
+          </TouchableOpacity>
         ))}
       </ScrollView>
       
