@@ -3,6 +3,7 @@ import { View, StyleSheet, Platform } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
+import * as Haptics from 'expo-haptics';
 import { useGameStore } from '@/store/game-store';
 import { GridSize, SudokuVariant } from '@/types/game';
 import { checkSolution, isPuzzleComplete } from '@/utils/sudoku';
@@ -13,11 +14,14 @@ import SuccessModal from '@/components/SuccessModal';
 import CustomAlert from '@/components/CustomAlert';
 import { useTimer } from '@/hooks/useTimer';
 import { useTheme } from '@/hooks/useTheme';
+import { useAdStore } from '@/store/ad-store';
+import TipModal from '@/components/TipModal';
 
 export default function GameScreen() {
   const params = useLocalSearchParams<{ variant: string; size: string }>();
   const router = useRouter();
   const { theme } = useTheme();
+  const { showInterstitial, completedGamesCount } = useAdStore();
   
   const variant = (params.variant || 'numerical') as SudokuVariant;
   const size = parseInt(params.size || '3', 10) as GridSize;
@@ -36,6 +40,7 @@ export default function GameScreen() {
   } = useGameStore();
   
   const [successModalVisible, setSuccessModalVisible] = useState(false);
+  const [pointsModalVisible, setPointsModalVisible] = useState(false);
   const [alertVisible, setAlertVisible] = useState(false);
   const [alertMessage, setAlertMessage] = useState('');
   const [completionData, setCompletionData] = useState<{
@@ -44,6 +49,8 @@ export default function GameScreen() {
     time: number;
   } | null>(null);
   const [isCheckingCompletion, setIsCheckingCompletion] = useState(false);
+  const [pointsAlertVisible, setPointsAlertVisible] = useState(false);
+  const [tipModalVisible, setTipModalVisible] = useState(false);
   
   // Start a new game when the screen loads
   useEffect(() => {
@@ -56,7 +63,15 @@ export default function GameScreen() {
   // Automatically check for completion whenever the grid changes
   useEffect(() => {
     if (currentGame && currentGame.isPlaying && !isCheckingCompletion) {
-      checkCompletion();
+      // Check if the puzzle is complete
+      if (isPuzzleComplete(currentGame.grid)) {
+        setIsCheckingCompletion(true);
+        
+        // Add a slight delay before showing completion results
+        setTimeout(() => {
+          checkCompletion();
+        }, 1000);
+      }
     }
   }, [currentGame?.grid]);
   
@@ -67,49 +82,83 @@ export default function GameScreen() {
   
   // Check if the puzzle is complete and handle the result
   const checkCompletion = () => {
-    if (!currentGame || isCheckingCompletion || !currentGame.isPlaying) return;
-    
-    // Check if all cells are filled
-    if (isPuzzleComplete(currentGame.grid)) {
-      setIsCheckingCompletion(true);
-      
-      // Check if the solution is correct
-      const { isCorrect, incorrectCount } = checkGameSolution();
-      
-      if (isCorrect) {
-        // Puzzle completed successfully
-        const result = completeGame();
-        if (result) {
-          setCompletionData(result);
-          // Show success modal with a slight delay for better UX
-          setTimeout(() => {
-            setSuccessModalVisible(true);
-            setIsCheckingCompletion(false);
-          }, 300);
-        } else {
-          setIsCheckingCompletion(false);
-        }
-      } else {
-        // Puzzle has errors
-        const itemName = 
-          variant === 'numerical' ? 'numbers' : 
-          variant === 'color' ? 'colours' : 
-          variant === 'emoji' ? 'emojis' : 'flags';
-        
-        setAlertMessage(
-          `There ${incorrectCount === 1 ? 'is' : 'are'} ${incorrectCount} incorrect ${itemName}. Please check your answers and fix the mistakes. You can use the Tip feature to highlight errors.`
-        );
-        setAlertVisible(true);
-        setIsCheckingCompletion(false);
-      }
+    if (!currentGame || !currentGame.isPlaying) {
+      setIsCheckingCompletion(false);
+      return;
     }
+    
+    // Check if the solution is correct
+    const { isCorrect, incorrectCount } = checkGameSolution();
+    
+    if (isCorrect) {
+      // Puzzle completed successfully
+      if (Platform.OS !== 'web') {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+      
+      const result = completeGame();
+      if (result) {
+        setCompletionData(result);
+        
+        // Show interstitial ad every 7 completed games
+        if (completedGamesCount % 7 === 0) {
+          showInterstitial();
+        }
+        
+        // First show points earned modal
+        setPointsModalVisible(true);
+      }
+    } else {
+      // Puzzle has errors
+      if (Platform.OS !== 'web') {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      }
+      
+      const itemName = 
+        variant === 'numerical' ? 'numbers' : 
+        variant === 'color' ? 'colours' : 
+        variant === 'emoji' ? 'emojis' : 'flags';
+      
+      setAlertMessage(
+        `There ${incorrectCount === 1 ? 'is' : 'are'} ${incorrectCount} incorrect ${itemName}. Please check your answers and fix the mistakes. You can use the Tip feature to highlight errors.`
+      );
+      setAlertVisible(true);
+    }
+    
+    setIsCheckingCompletion(false);
   };
   
   // Handle value input
   const handleValueSelect = (value: number) => {
     setCellValue(value);
-    // Note: We don't need to manually check completion here anymore
-    // as the useEffect will handle it when the grid changes
+    
+    // Check for completion after setting a value
+    // This is needed to detect completion immediately
+    if (currentGame && currentGame.isPlaying) {
+      // We need to simulate the updated grid to check if it would be complete
+      const updatedGrid = [...currentGame.grid];
+      if (currentGame.selectedCell) {
+        const { row, col } = currentGame.selectedCell;
+        const cell = currentGame.grid[row][col];
+        
+        if (!cell.fixed) {
+          // Create a copy of the grid with the new value
+          updatedGrid[row] = [...updatedGrid[row]];
+          updatedGrid[row][col] = {
+            ...cell,
+            value: cell.value === value ? null : value,
+          };
+          
+          // Check if this update would complete the puzzle
+          if (isPuzzleComplete(updatedGrid) && !isCheckingCompletion) {
+            setIsCheckingCompletion(true);
+            setTimeout(() => {
+              checkCompletion();
+            }, 1000);
+          }
+        }
+      }
+    }
   };
   
   // Handle clear cell
@@ -124,12 +173,24 @@ export default function GameScreen() {
   
   // Handle tip
   const handleTip = () => {
-    const result = useTip();
+    // Show tip modal instead of directly using tip
+    setTipModalVisible(true);
+  };
+  
+  // Handle tip from modal
+  const handleUseTip = (usePoints: boolean) => {
+    setTipModalVisible(false);
+    
+    const result = useTip(usePoints);
     
     if (!result.success) {
       setAlertMessage('You need 30 points to use a tip.');
       setAlertVisible(true);
       return;
+    }
+    
+    if (Platform.OS !== 'web') {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
     }
     
     if (result.incorrectCells && result.incorrectCells.length === 0) {
@@ -165,6 +226,17 @@ export default function GameScreen() {
     setAlertVisible(false);
   };
   
+  // Handle points info
+  const handlePointsInfo = () => {
+    setPointsAlertVisible(true);
+  };
+  
+  // Handle points modal close
+  const handlePointsModalClose = () => {
+    setPointsModalVisible(false);
+    setSuccessModalVisible(true);
+  };
+  
   if (!currentGame) {
     return null;
   }
@@ -182,6 +254,7 @@ export default function GameScreen() {
           points={points}
           onRestart={handleRestart}
           onTip={handleTip}
+          onPointsPress={handlePointsInfo}
         />
         
         <View style={styles.gameContainer}>
@@ -202,14 +275,26 @@ export default function GameScreen() {
         </View>
         
         {completionData && (
-          <SuccessModal
-            visible={successModalVisible}
-            time={completionData.time}
-            pointsEarned={completionData.pointsEarned}
-            isPersonalBest={completionData.isPersonalBest}
-            onPlayAgain={handlePlayAgain}
-            onBackToMenu={handleBackToMenu}
-          />
+          <>
+            {/* First modal: Points earned */}
+            <CustomAlert
+              visible={pointsModalVisible}
+              title="Congratulations!"
+              message={`You completed the puzzle in ${completionData.time} seconds! You earned ${completionData.pointsEarned} points. Your total is now ${points} points.${completionData.isPersonalBest ? ' This is your new personal best!' : ''}`}
+              type="success"
+              onClose={handlePointsModalClose}
+            />
+            
+            {/* Second modal: Play again or back to menu */}
+            <SuccessModal
+              visible={successModalVisible}
+              time={completionData.time}
+              pointsEarned={completionData.pointsEarned}
+              isPersonalBest={completionData.isPersonalBest}
+              onPlayAgain={handlePlayAgain}
+              onBackToMenu={handleBackToMenu}
+            />
+          </>
         )}
         
         <CustomAlert
@@ -218,6 +303,21 @@ export default function GameScreen() {
           message={alertMessage}
           type={alertMessage.includes('incorrect') ? 'warning' : 'info'}
           onClose={handleCloseAlert}
+        />
+        
+        <CustomAlert
+          visible={pointsAlertVisible}
+          title="Your Points"
+          message={`You have ${points} points! Earn more by completing Sudoku puzzles or buy them in the Shop.`}
+          type="info"
+          onClose={() => setPointsAlertVisible(false)}
+        />
+        
+        <TipModal
+          visible={tipModalVisible}
+          points={points}
+          onUseTip={handleUseTip}
+          onCancel={() => setTipModalVisible(false)}
         />
       </SafeAreaView>
     </>

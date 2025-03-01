@@ -119,14 +119,14 @@ export default function SudokuGrid({
             const isInSameRow = selectedCell?.row === rowIndex;
             const isInSameCol = selectedCell?.col === colIndex;
             
-            // Determine cell background color - using enhanced highlighting
+            // Determine cell background color - using enhanced highlighting with more vibrant colors
             let backgroundColor = theme.backgroundColor;
             if (isSelected) {
-              backgroundColor = 'rgba(96, 165, 250, 0.25)'; // Slightly more vibrant blue for selected cell
+              backgroundColor = 'rgba(96, 165, 250, 0.8)'; // More vibrant blue for selected cell
             } else if (isInSameBox && (boxRows > 1 || boxCols > 1)) {
-              backgroundColor = 'rgba(96, 165, 250, 0.15)'; // More noticeable blue for same box
+              backgroundColor = 'rgba(96, 165, 250, 0.5)'; // More noticeable blue for same box
             } else if (isInSameRow || isInSameCol) {
-              backgroundColor = 'rgba(96, 165, 250, 0.1)'; // More visible blue for same row/column
+              backgroundColor = 'rgba(96, 165, 250, 0.4)'; // More visible blue for same row/column
             }
             
             // For non-fixed cells
@@ -138,62 +138,3 @@ export default function SudokuGrid({
             if (cell.isError) {
               backgroundColor = '#FECACA';
             }
-            
-            // Determine border styles based on box dimensions
-            const borderRightWidth =
-              (colIndex + 1) % boxCols === 0 && colIndex < size - 1 ? 2 : 1;
-            const borderBottomWidth =
-              (rowIndex + 1) % boxRows === 0 && rowIndex < size - 1 ? 2 : 1;
-            
-            return (
-              <TouchableOpacity
-                key={colIndex}
-                style={[
-                  styles.cell,
-                  {
-                    width: cellSize,
-                    height: cellSize,
-                    backgroundColor,
-                    borderRightWidth,
-                    borderBottomWidth,
-                    borderColor: theme.primaryColor,
-                  },
-                ]}
-                onPress={() => onCellPress(rowIndex, colIndex)}
-                activeOpacity={0.7}
-              >
-                {renderCellContent(cell, rowIndex, colIndex)}
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-      ))}
-    </View>
-  );
-}
-
-const styles = StyleSheet.create({
-  container: {
-    borderWidth: 2,
-    borderRadius: 12,
-    overflow: 'hidden',
-  },
-  row: {
-    flexDirection: 'row',
-  },
-  cell: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRightWidth: 1,
-    borderBottomWidth: 1,
-  },
-  cellText: {
-    fontWeight: 'bold',
-  },
-  colorCell: {
-    borderRadius: 4,
-  },
-  emojiText: {
-    textAlign: 'center',
-  },
-});

@@ -20,23 +20,12 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
-      },
-      "package": "com.exumator.sudoku"
+      }
     },
-    "plugins": [
-      "expo-router",
-      "react-native-iap"
-    ],
+
+    "plugins": ["expo-router"],
     "experiments": {
       "typedRoutes": true
-    },
-    "extra": {
-      "router": {
-        "origin": false
-      },
-      "eas": {
-        "projectId": "88a7d04e-8f8d-4a26-ad6c-e3cd3d85dc46"
-      }
     }
   }
 }

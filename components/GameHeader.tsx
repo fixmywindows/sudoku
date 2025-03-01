@@ -1,10 +1,9 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ArrowLeft, RefreshCw, Lightbulb, Coins } from 'lucide-react-native';
 import { formatTime } from '@/utils/sudoku';
 import { useTheme } from '@/hooks/useTheme';
-import CustomAlert from './CustomAlert';
 import { TIP_COST } from '@/constants/game';
 
 interface GameHeaderProps {
@@ -12,16 +11,12 @@ interface GameHeaderProps {
   points: number;
   onRestart: () => void;
   onTip: () => void;
+  onPointsPress: () => void;
 }
 
-export default function GameHeader({ timer, points, onRestart, onTip }: GameHeaderProps) {
+export default function GameHeader({ timer, points, onRestart, onTip, onPointsPress }: GameHeaderProps) {
   const router = useRouter();
   const { theme } = useTheme();
-  const [pointsAlertVisible, setPointsAlertVisible] = useState(false);
-  
-  const handlePointsPress = () => {
-    setPointsAlertVisible(true);
-  };
   
   return (
     <View style={styles.container}>
@@ -58,20 +53,12 @@ export default function GameHeader({ timer, points, onRestart, onTip }: GameHead
         
         <TouchableOpacity
           style={[styles.pointsContainer, { backgroundColor: theme.primaryColor }]}
-          onPress={handlePointsPress}
+          onPress={onPointsPress}
         >
           <Coins size={16} color="#FFFFFF" />
           <Text style={styles.pointsText}>Points: {points}</Text>
         </TouchableOpacity>
       </View>
-      
-      <CustomAlert
-        visible={pointsAlertVisible}
-        title="Your Points"
-        message={`You have ${points} points! Earn more by completing Sudoku puzzles or buy them in the Shop.`}
-        type="info"
-        onClose={() => setPointsAlertVisible(false)}
-      />
     </View>
   );
 }

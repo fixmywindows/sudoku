@@ -2,24 +2,26 @@ import { CategoryCard, GridSize, PointsPackage, ThemeOption } from "@/types/game
 
 export const GRID_SIZES: GridSize[] = [3, 4, 5, 6, 7, 8, 9];
 
+// Adjusted unlock costs to make progression smoother
 export const UNLOCK_POINTS: Record<GridSize, number> = {
-  3: 0,
-  4: 50,
-  5: 100,
-  6: 150,
-  7: 200,
-  8: 300,
-  9: 500,
+  3: 0,    // Free
+  4: 10,   // Unlockable after first game
+  5: 50,   // Requires a few games
+  6: 100,  // Requires more games
+  7: 200,  // Requires significant play
+  8: 300,  // Challenging to unlock
+  9: 500,  // End-game content
 };
 
+// Adjusted reward points to match progression
 export const REWARD_POINTS: Record<GridSize, number> = {
-  3: 10,
+  3: 10,   // Basic reward
   4: 15,
   5: 20,
   6: 25,
   7: 30,
   8: 35,
-  9: 40,
+  9: 40,   // Maximum reward
 };
 
 export const EMOJI_BONUS = 10;
@@ -154,3 +156,14 @@ export const POINTS_PACKAGES: PointsPackage[] = [
 ];
 
 export const NO_ADS_PRICE = '£2.99';
+
+// Daily rewards configuration
+export const DAILY_REWARDS = [
+  { day: 1, points: 10 },
+  { day: 2, points: 15 },
+  { day: 3, points: 25 },
+  { day: 4, points: 35 },
+  { day: 5, points: 50 },
+  { day: 6, points: 65 },
+  { day: 7, points: 80 },
+];

@@ -15,7 +15,6 @@ export default function ShopScreen() {
     if (!packageItem) return;
     
     // In a real app, this would trigger the app store purchase flow
-    // For now, we'll just show an alert
     Alert.alert(
       'Purchase Points',
       `This would initiate a purchase for ${packageItem.points} points for ${packageItem.price}.`,
@@ -25,7 +24,6 @@ export default function ShopScreen() {
           text: 'Buy', 
           onPress: () => {
             // This is where you would handle successful purchase
-            // For testing, we'll just add the points directly
             Alert.alert('Purchase Successful', `You've purchased ${packageItem.points} points!`);
             addPoints(packageItem.points);
           }
@@ -45,7 +43,6 @@ export default function ShopScreen() {
     }
     
     // In a real app with IAP, you might have separate product IDs for themes
-    // For now, we'll use the points system
     const success = unlockTheme(themeId);
     
     if (success) {

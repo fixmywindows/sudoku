@@ -2,8 +2,9 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { GameState, GridSize, SudokuCell, SudokuVariant } from '@/types/game';
-import { GRID_SIZES, REWARD_POINTS, THEMES, UNLOCK_POINTS, EMOJI_BONUS, TIP_COST } from '@/constants/game';
+import { GRID_SIZES, REWARD_POINTS, THEMES, UNLOCK_POINTS, EMOJI_BONUS, TIP_COST, DAILY_REWARDS } from '@/constants/game';
 import { createPuzzle, generateSudokuSolution } from '@/utils/sudoku';
+import { useAdStore } from './ad-store';
 
 interface GameStore {
   // Game state
@@ -14,6 +15,9 @@ interface GameStore {
   currentTheme: string;
   unlockedThemes: string[];
   noAds: boolean;
+  completedGames: number;
+  lastDailyRewardDate: string | null;
+  currentDailyStreak: number;
   
   // Actions
   startGame: (variant: SudokuVariant, size: GridSize) => void;
@@ -31,6 +35,13 @@ interface GameStore {
   purchaseNoAds: () => void;
   setTheme: (themeId: string) => void;
   resetGame: () => void;
+  checkDailyReward: () => { 
+    hasReward: boolean; 
+    day: number; 
+    points: number; 
+    streakBroken: boolean;
+  };
+  claimDailyReward: () => number;
 }
 
 const initialUnlockedGridSizes: Record<SudokuVariant, GridSize[]> = {
@@ -57,6 +68,9 @@ export const useGameStore = create<GameStore>()(
       currentTheme: 'default',
       unlockedThemes: ['default'],
       noAds: false,
+      completedGames: 0,
+      lastDailyRewardDate: null,
+      currentDailyStreak: 0,
       
       startGame: (variant, size) => {
         const solution = generateSudokuSolution(size);
@@ -179,7 +193,7 @@ export const useGameStore = create<GameStore>()(
       },
       
       completeGame: () => {
-        const { currentGame, personalBests } = get();
+        const { currentGame, personalBests, completedGames } = get();
         if (!currentGame) return null;
         
         const { variant, gridSize, timer } = currentGame;
@@ -204,13 +218,14 @@ export const useGameStore = create<GameStore>()(
         // Add points
         get().addPoints(pointsEarned);
         
-        // Update game state
+        // Update game state and increment completed games counter
         set({
           currentGame: {
             ...currentGame,
             isComplete: true,
             isPlaying: false,
           },
+          completedGames: completedGames + 1
         });
         
         return {
@@ -233,8 +248,49 @@ export const useGameStore = create<GameStore>()(
       },
       
       useTip: () => {
-        const { currentGame, points } = get();
+        const { currentGame, points, noAds } = get();
         if (!currentGame) return { success: false };
+        
+        // If user watched a rewarded ad, don't charge points
+        if (useAdStore.getState().usedRewardedAd) {
+          useAdStore.setState({ usedRewardedAd: false });
+          
+          // Find incorrect cells
+          const incorrectCells: { row: number; col: number }[] = [];
+          
+          for (let row = 0; row < currentGame.grid.length; row++) {
+            for (let col = 0; col < currentGame.grid[row].length; col++) {
+              const cell = currentGame.grid[row][col];
+              if (!cell.fixed && cell.value !== null && cell.value !== currentGame.solution[row][col]) {
+                incorrectCells.push({ row, col });
+              }
+            }
+          }
+          
+          // Mark incorrect cells
+          if (incorrectCells.length > 0) {
+            const newGrid = [...currentGame.grid];
+            
+            for (const { row, col } of incorrectCells) {
+              newGrid[row] = [...newGrid[row]];
+              newGrid[row][col] = {
+                ...newGrid[row][col],
+                isError: true,
+              };
+            }
+            
+            set({
+              currentGame: {
+                ...currentGame,
+                grid: newGrid,
+              }
+            });
+            
+            return { success: true, incorrectCells };
+          }
+          
+          return { success: true, incorrectCells: [] };
+        }
         
         // Check if user has enough points
         if (points < TIP_COST) {
@@ -347,6 +403,75 @@ export const useGameStore = create<GameStore>()(
         }
       },
       
+      checkDailyReward: () => {
+        const { lastDailyRewardDate, currentDailyStreak } = get();
+        
+        const today = new Date().toISOString().split('T')[0];
+        
+        // If no previous reward date, this is the first time
+        if (!lastDailyRewardDate) {
+          return { 
+            hasReward: true, 
+            day: 1, 
+            points: DAILY_REWARDS[0].points,
+            streakBroken: false
+          };
+        }
+        
+        // Check if the last reward was claimed today
+        if (lastDailyRewardDate === today) {
+          return { 
+            hasReward: false, 
+            day: currentDailyStreak, 
+            points: 0,
+            streakBroken: false
+          };
+        }
+        
+        // Check if the last reward was claimed yesterday
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        const yesterdayString = yesterday.toISOString().split('T')[0];
+        
+        if (lastDailyRewardDate === yesterdayString) {
+          // Continue streak
+          const nextDay = (currentDailyStreak % 7) + 1;
+          return { 
+            hasReward: true, 
+            day: nextDay, 
+            points: DAILY_REWARDS[nextDay - 1].points,
+            streakBroken: false
+          };
+        }
+        
+        // Streak broken, start from day 1
+        return { 
+          hasReward: true, 
+          day: 1, 
+          points: DAILY_REWARDS[0].points,
+          streakBroken: true
+        };
+      },
+      
+      claimDailyReward: () => {
+        const { checkDailyReward, addPoints } = get();
+        const reward = checkDailyReward();
+        
+        if (reward.hasReward) {
+          const today = new Date().toISOString().split('T')[0];
+          
+          set({
+            lastDailyRewardDate: today,
+            currentDailyStreak: reward.day
+          });
+          
+          addPoints(reward.points);
+          return reward.points;
+        }
+        
+        return 0;
+      },
+      
       resetGame: () => {
         set({
           currentGame: null,
@@ -356,6 +481,9 @@ export const useGameStore = create<GameStore>()(
           currentTheme: 'default',
           unlockedThemes: ['default'],
           noAds: false,
+          completedGames: 0,
+          lastDailyRewardDate: null,
+          currentDailyStreak: 0,
         });
       },
     }),
@@ -369,6 +497,9 @@ export const useGameStore = create<GameStore>()(
         currentTheme: state.currentTheme,
         unlockedThemes: state.unlockedThemes,
         noAds: state.noAds,
+        completedGames: state.completedGames,
+        lastDailyRewardDate: state.lastDailyRewardDate,
+        currentDailyStreak: state.currentDailyStreak,
       }),
     }
   )

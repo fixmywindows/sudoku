@@ -8,14 +8,14 @@ import {
   Animated,
   Dimensions,
 } from 'react-native';
-import { AlertTriangle, Info } from 'lucide-react-native';
+import { AlertTriangle, Info, CheckCircle } from 'lucide-react-native';
 import { useTheme } from '@/hooks/useTheme';
 
 interface CustomAlertProps {
   visible: boolean;
   title: string;
   message: string;
-  type?: 'info' | 'warning';
+  type?: 'info' | 'warning' | 'success';
   onClose: () => void;
 }
 
@@ -45,8 +45,24 @@ export default function CustomAlert({
     }
   }, [visible, fadeAnim]);
   
-  const Icon = type === 'info' ? Info : AlertTriangle;
-  const iconColor = type === 'info' ? theme.primaryColor : '#F59E0B';
+  let Icon;
+  let iconColor;
+  
+  switch (type) {
+    case 'warning':
+      Icon = AlertTriangle;
+      iconColor = '#F59E0B';
+      break;
+    case 'success':
+      Icon = CheckCircle;
+      iconColor = '#22C55E';
+      break;
+    case 'info':
+    default:
+      Icon = Info;
+      iconColor = theme.primaryColor;
+      break;
+  }
   
   return (
     <Modal transparent visible={visible} animationType="none">

@@ -68,7 +68,7 @@ export default function CategoryCard({ category }: CategoryCardProps) {
   
   const maxHeight = slideAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [0, 380], // Increased height to accommodate all grid sizes with more padding
+    outputRange: [0, 500], // Increased height to accommodate all grid sizes with more padding
   });
   
   return (
@@ -116,7 +116,7 @@ export default function CategoryCard({ category }: CategoryCardProps) {
                 {
                   opacity: isUnlocked || canAffordUnlock ? 1 : 0.7,
                   borderBottomColor: theme.id !== 'default' ? `${theme.primaryColor}20` : '#E2E8F0',
-                  paddingVertical: 14, // Increased padding for better spacing
+                  paddingVertical: 16, // Increased padding for better spacing
                 },
               ]}
               onPress={() => handleSizeSelect(size)}
@@ -192,17 +192,22 @@ function SampleGrid({ variant, theme }: { variant: string; theme: any }) {
             <View style={[styles.sampleGrid, { borderColor: theme.primaryColor }]}>
               {[1, 2, 3].map((row) => (
                 <View key={`row-${row}`} style={styles.sampleRow}>
-                  {[1, 2, 3].map((col) => (
-                    <View 
-                      key={`cell-${row}-${col}`} 
-                      style={[
-                        styles.sampleCell, 
-                        { borderColor: theme.primaryColor }
-                      ]}
-                    >
-                      <Text style={styles.sampleNumber}>{(row-1)*3 + col}</Text>
-                    </View>
-                  ))}
+                  {[1, 2, 3].map((col) => {
+                    const value = (row - 1) * 3 + col;
+                    return (
+                      <View 
+                        key={`cell-${row}-${col}`} 
+                        style={[
+                          styles.sampleCell, 
+                          { borderColor: theme.primaryColor }
+                        ]}
+                      >
+                        <Text style={[styles.sampleNumber, { color: theme.primaryColor }]}>
+                          {value}
+                        </Text>
+                      </View>
+                    );
+                  })}
                 </View>
               ))}
             </View>
@@ -214,18 +219,29 @@ function SampleGrid({ variant, theme }: { variant: string; theme: any }) {
             <View style={[styles.sampleGrid, { borderColor: theme.primaryColor }]}>
               {[0, 1, 2].map((row) => (
                 <View key={`row-${row}`} style={styles.sampleRow}>
-                  {[0, 1, 2].map((col) => (
-                    <View
-                      key={`cell-${row}-${col}`}
-                      style={[
-                        styles.sampleCell, 
-                        { 
-                          borderColor: theme.primaryColor,
-                          backgroundColor: COLORS[row*3 + col] 
-                        }
-                      ]}
-                    />
-                  ))}
+                  {[0, 1, 2].map((col) => {
+                    const index = row * 3 + col;
+                    return (
+                      <View
+                        key={`cell-${row}-${col}`}
+                        style={[
+                          styles.sampleCell, 
+                          { 
+                            borderColor: theme.primaryColor,
+                            justifyContent: 'center',
+                            alignItems: 'center'
+                          }
+                        ]}
+                      >
+                        <View 
+                          style={[
+                            styles.colorSample, 
+                            { backgroundColor: COLORS[index % COLORS.length] }
+                          ]} 
+                        />
+                      </View>
+                    );
+                  })}
                 </View>
               ))}
             </View>
@@ -237,17 +253,22 @@ function SampleGrid({ variant, theme }: { variant: string; theme: any }) {
             <View style={[styles.sampleGrid, { borderColor: theme.primaryColor }]}>
               {[0, 1, 2].map((row) => (
                 <View key={`row-${row}`} style={styles.sampleRow}>
-                  {[0, 1, 2].map((col) => (
-                    <View 
-                      key={`cell-${row}-${col}`} 
-                      style={[
-                        styles.sampleCell, 
-                        { borderColor: theme.primaryColor }
-                      ]}
-                    >
-                      <Text style={styles.sampleEmoji}>{EMOJIS[row*3 + col]}</Text>
-                    </View>
-                  ))}
+                  {[0, 1, 2].map((col) => {
+                    const index = row * 3 + col;
+                    return (
+                      <View 
+                        key={`cell-${row}-${col}`} 
+                        style={[
+                          styles.sampleCell, 
+                          { borderColor: theme.primaryColor }
+                        ]}
+                      >
+                        <Text style={styles.sampleEmoji}>
+                          {EMOJIS[index % EMOJIS.length]}
+                        </Text>
+                      </View>
+                    );
+                  })}
                 </View>
               ))}
             </View>
@@ -259,17 +280,22 @@ function SampleGrid({ variant, theme }: { variant: string; theme: any }) {
             <View style={[styles.sampleGrid, { borderColor: theme.primaryColor }]}>
               {[0, 1, 2].map((row) => (
                 <View key={`row-${row}`} style={styles.sampleRow}>
-                  {[0, 1, 2].map((col) => (
-                    <View 
-                      key={`cell-${row}-${col}`} 
-                      style={[
-                        styles.sampleCell, 
-                        { borderColor: theme.primaryColor }
-                      ]}
-                    >
-                      <Text style={styles.sampleEmoji}>{FLAGS[row*3 + col]}</Text>
-                    </View>
-                  ))}
+                  {[0, 1, 2].map((col) => {
+                    const index = row * 3 + col;
+                    return (
+                      <View 
+                        key={`cell-${row}-${col}`} 
+                        style={[
+                          styles.sampleCell, 
+                          { borderColor: theme.primaryColor }
+                        ]}
+                      >
+                        <Text style={styles.sampleEmoji}>
+                          {FLAGS[index % FLAGS.length]}
+                        </Text>
+                      </View>
+                    );
+                  })}
                 </View>
               ))}
             </View>
@@ -342,6 +368,11 @@ const styles = StyleSheet.create({
   sampleEmoji: {
     fontSize: 20,
   },
+  colorSample: {
+    width: 30,
+    height: 30,
+    borderRadius: 4,
+  },
   sizesContainer: {
     overflow: 'hidden',
   },
@@ -350,6 +381,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
+    paddingVertical: 20, // Increased padding for better spacing
     borderBottomWidth: 1,
   },
   sizeInfo: {
