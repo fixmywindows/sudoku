@@ -1,147 +1,78 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
-import { useRouter } from 'expo-router';
-import { Coins, ShoppingCart } from 'lucide-react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useGameStore } from '@/store/game-store';
-import { CATEGORIES } from '@/constants/game';
-import CategoryCard from '@/components/CategoryCard';
-import CustomAlert from '@/components/CustomAlert';
-import DailyRewardModal from '@/components/DailyRewardModal';
-import { useTheme } from '@/hooks/useTheme';
+import { useGameStore, SudokuType, GridSize } from "../../store/game-store";
+import { router } from "expo-router";
+import { Button, SafeAreaView, StyleSheet, Text, View, Modal, Alert } from "react-native";
+import { useState, useEffect } from "react";
 
-export default function HomeScreen() {
-  const router = useRouter();
-  const { points, checkDailyReward, claimDailyReward } = useGameStore();
-  const { theme } = useTheme();
-  const [pointsAlertVisible, setPointsAlertVisible] = useState(false);
-  const [dailyRewardVisible, setDailyRewardVisible] = useState(false);
-  const [dailyRewardData, setDailyRewardData] = useState({
-    day: 1,
-    points: 0,
-    streakBroken: false
-  });
-  
-  // Check for daily reward on component mount
+export default function Index() {
+  const { setTypeAndSize, unlockLevel, points, unlockedLevels, claimDailyReward } = useGameStore();
+  const [showConfirm, setShowConfirm] = useState<{ type: SudokuType; size: GridSize } | null>(null);
+
+  const sudokuTypes = [
+    { name: "Numerical", type: "numerical" as const },
+    { name: "Colour", type: "colour" as const },
+    { name: "Emoji", type: "emoji" as const },
+    { name: "Flags", type: "flags" as const },
+  ];
+  const sizes: GridSize[] = [3, 4, 5, 6, 7, 8, 9];
+  const unlockCosts: Record<GridSize, number> = { 3: 0, 4: 10, 5: 20, 6: 30, 7: 40, 8: 50, 9: 60 };
+
   useEffect(() => {
-    const reward = checkDailyReward();
-    if (reward.hasReward) {
-      setDailyRewardData({
-        day: reward.day,
-        points: reward.points,
-        streakBroken: reward.streakBroken
-      });
-      setDailyRewardVisible(true);
-    }
-  }, []);
-  
-  const handlePointsPress = () => {
-    setPointsAlertVisible(true);
-  };
-  
-  const handleClaimDailyReward = () => {
     claimDailyReward();
-    setDailyRewardVisible(false);
+  }, []);
+
+  const handleLevelPress = (type: SudokuType, size: GridSize) => {
+    if (unlockedLevels[type].includes(size)) {
+      setTypeAndSize(type, size);
+      router.push("/game");
+    } else {
+      setShowConfirm({ type, size });
+    }
   };
-  
+
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.backgroundColor }]}>
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={[styles.pointsButton, { backgroundColor: theme.primaryColor }]}
-          onPress={handlePointsPress}
-        >
-          <Coins size={18} color="#FFFFFF" />
-          <Text style={styles.pointsText}>Points: {points}</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity
-          style={[styles.shopButton, { backgroundColor: theme.primaryColor }]}
-          onPress={() => router.push('/shop')}
-        >
-          <ShoppingCart size={18} color="#FFFFFF" />
-          <Text style={styles.shopText}>Shop</Text>
-        </TouchableOpacity>
-      </View>
-      
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        <Text style={[styles.title, { color: theme.primaryColor }]}>
-          Choose Your Sudoku
-        </Text>
-        
-        {CATEGORIES.map((category) => (
-          <CategoryCard key={category.id} category={category} />
-        ))}
-      </ScrollView>
-      
-      <CustomAlert
-        visible={pointsAlertVisible}
-        title="Your Points"
-        message={`You have ${points} points! Earn more by completing Sudoku puzzles or buy them in the Shop.`}
-        type="info"
-        onClose={() => setPointsAlertVisible(false)}
-      />
-      
-      <DailyRewardModal
-        visible={dailyRewardVisible}
-        day={dailyRewardData.day}
-        points={dailyRewardData.points}
-        streakBroken={dailyRewardData.streakBroken}
-        onClaim={handleClaimDailyReward}
-      />
+    <SafeAreaView style={styles.container}>
+      <Text style={styles.title}>Sudoku</Text>
+      {sudokuTypes.map((sudoku) => (
+        <View key={sudoku.type} style={styles.typeContainer}>
+          <Text style={styles.typeTitle}>{sudoku.name}</Text>
+          {sizes.map((size) => (
+            <Button
+              key={size}
+              title={`${size}x${size}${unlockedLevels[sudoku.type].includes(size) ? "" : " (Locked)"}`}
+              onPress={() => handleLevelPress(sudoku.type, size)}
+              color={unlockedLevels[sudoku.type].includes(size) ? "#000" : "#888"}
+            />
+          ))}
+        </View>
+      ))}
+      <Modal visible={!!showConfirm} transparent animationType="slide">
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <Text>Unlock {showConfirm?.size}x{showConfirm?.size} {sudokuTypes.find(t => t.type === showConfirm?.type)?.name} for {unlockCosts[showConfirm?.size || 3]} points?</Text>
+            <Button
+              title="Confirm"
+              onPress={() => {
+                if (showConfirm && unlockLevel(showConfirm.type, showConfirm.size)) {
+                  setShowConfirm(null);
+                } else {
+                  Alert.alert("Not enough points!");
+                  setShowConfirm(null);
+                }
+              }}
+            />
+            <Button title="Cancel" onPress={() => setShowConfirm(null)} />
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  pointsButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 16,
-    gap: 6,
-  },
-  pointsText: {
-    color: '#FFFFFF',
-    fontWeight: 'bold',
-  },
-  shopButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 16,
-    gap: 6,
-  },
-  shopText: {
-    color: '#FFFFFF',
-    fontWeight: 'bold',
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingHorizontal: 16,
-    paddingBottom: 24,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginVertical: 16,
-    textAlign: 'center',
-  },
+  container: { flex: 1, alignItems: "center", justifyContent: "center" },
+  title: { fontSize: 24, fontWeight: "bold", marginBottom: 20 },
+  typeContainer: { marginVertical: 10, alignItems: "center" },
+  typeTitle: { fontSize: 18, marginBottom: 5 },
+  modalContainer: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "rgba(0,0,0,0.5)" },
+  modalContent: { backgroundColor: "white", padding: 20, borderRadius: 10, alignItems: "center" },
 });

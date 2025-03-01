@@ -1,338 +1,89 @@
-import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, Platform } from 'react-native';
-import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { StatusBar } from 'expo-status-bar';
-import * as Haptics from 'expo-haptics';
-import { useGameStore } from '@/store/game-store';
-import { GridSize, SudokuVariant } from '@/types/game';
-import { checkSolution, isPuzzleComplete } from '@/utils/sudoku';
-import SudokuGrid from '@/components/SudokuGrid';
-import InputKeypad from '@/components/InputKeypad';
-import GameHeader from '@/components/GameHeader';
-import SuccessModal from '@/components/SuccessModal';
-import CustomAlert from '@/components/CustomAlert';
-import { useTimer } from '@/hooks/useTimer';
-import { useTheme } from '@/hooks/useTheme';
-import { useAdStore } from '@/store/ad-store';
-import TipModal from '@/components/TipModal';
+import { useGameStore, Cell } from "../store/game-store";
+import { FlatList, SafeAreaView, StyleSheet, Text, TouchableOpacity, View, Modal, Button } from "react-native";
+import { useState, useEffect } from "react";
+import Vibration from "react-native-vibration";
+import SuccessModal from "../components/SuccessModal"; // Adjusted path
+import TipModal from "../components/TipModal"; // Adjusted path
 
-export default function GameScreen() {
-  const params = useLocalSearchParams<{ variant: string; size: string }>();
-  const router = useRouter();
-  const { theme } = useTheme();
-  const { showInterstitial, completedGamesCount } = useAdStore();
-  
-  const variant = (params.variant || 'numerical') as SudokuVariant;
-  const size = parseInt(params.size || '3', 10) as GridSize;
-  
-  const {
-    currentGame,
-    startGame,
-    selectCell,
-    setCellValue,
-    clearCellValue,
-    checkSolution: checkGameSolution,
-    restartGame,
-    completeGame,
-    useTip,
-    points,
-  } = useGameStore();
-  
-  const [successModalVisible, setSuccessModalVisible] = useState(false);
-  const [pointsModalVisible, setPointsModalVisible] = useState(false);
-  const [alertVisible, setAlertVisible] = useState(false);
-  const [alertMessage, setAlertMessage] = useState('');
-  const [completionData, setCompletionData] = useState<{
-    pointsEarned: number;
-    isPersonalBest: boolean;
-    time: number;
-  } | null>(null);
-  const [isCheckingCompletion, setIsCheckingCompletion] = useState(false);
-  const [pointsAlertVisible, setPointsAlertVisible] = useState(false);
-  const [tipModalVisible, setTipModalVisible] = useState(false);
-  
-  // Start a new game when the screen loads
+export default function Game() {
+  const { grid, setNumber, checkGame, type, size, mistakes, useHint } = useGameStore();
+  const [selectedCell, setSelectedCell] = useState<null | { row: number; col: number }>(null);
+  const [showTipModal, setShowTipModal] = useState(false);
+
   useEffect(() => {
-    startGame(variant, size);
-  }, [variant, size]);
-  
-  // Use the timer hook
-  useTimer(currentGame?.isPlaying || false);
-  
-  // Automatically check for completion whenever the grid changes
+    const timer = setInterval(() => useGameStore.getState().updateTime(), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
   useEffect(() => {
-    if (currentGame && currentGame.isPlaying && !isCheckingCompletion) {
-      // Check if the puzzle is complete
-      if (isPuzzleComplete(currentGame.grid)) {
-        setIsCheckingCompletion(true);
-        
-        // Add a slight delay before showing completion results
-        setTimeout(() => {
-          checkCompletion();
-        }, 1000);
-      }
-    }
-  }, [currentGame?.grid]);
-  
-  // Handle cell selection
-  const handleCellPress = (row: number, col: number) => {
-    selectCell(row, col);
+    if (mistakes > 0) Vibration.vibrate(200);
+  }, [mistakes]);
+
+  const renderCellValue = (cell: Cell) => {
+    if (type === "numerical") return cell === 0 ? "" : cell;
+    if (type === "colour") return <View style={{ backgroundColor: cell || "transparent", width: 20, height: 20 }} />;
+    if (type === "emoji") return cell || "";
+    if (type === "flags") return cell ? String.fromCodePoint(parseInt(cell as string, 16)) : "";
   };
-  
-  // Check if the puzzle is complete and handle the result
-  const checkCompletion = () => {
-    if (!currentGame || !currentGame.isPlaying) {
-      setIsCheckingCompletion(false);
-      return;
-    }
-    
-    // Check if the solution is correct
-    const { isCorrect, incorrectCount } = checkGameSolution();
-    
-    if (isCorrect) {
-      // Puzzle completed successfully
-      if (Platform.OS !== 'web') {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      }
-      
-      const result = completeGame();
-      if (result) {
-        setCompletionData(result);
-        
-        // Show interstitial ad every 7 completed games
-        if (completedGamesCount % 7 === 0) {
-          showInterstitial();
-        }
-        
-        // First show points earned modal
-        setPointsModalVisible(true);
-      }
-    } else {
-      // Puzzle has errors
-      if (Platform.OS !== 'web') {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      }
-      
-      const itemName = 
-        variant === 'numerical' ? 'numbers' : 
-        variant === 'color' ? 'colours' : 
-        variant === 'emoji' ? 'emojis' : 'flags';
-      
-      setAlertMessage(
-        `There ${incorrectCount === 1 ? 'is' : 'are'} ${incorrectCount} incorrect ${itemName}. Please check your answers and fix the mistakes. You can use the Tip feature to highlight errors.`
-      );
-      setAlertVisible(true);
-    }
-    
-    setIsCheckingCompletion(false);
-  };
-  
-  // Handle value input
-  const handleValueSelect = (value: number) => {
-    setCellValue(value);
-    
-    // Check for completion after setting a value
-    // This is needed to detect completion immediately
-    if (currentGame && currentGame.isPlaying) {
-      // We need to simulate the updated grid to check if it would be complete
-      const updatedGrid = [...currentGame.grid];
-      if (currentGame.selectedCell) {
-        const { row, col } = currentGame.selectedCell;
-        const cell = currentGame.grid[row][col];
-        
-        if (!cell.fixed) {
-          // Create a copy of the grid with the new value
-          updatedGrid[row] = [...updatedGrid[row]];
-          updatedGrid[row][col] = {
-            ...cell,
-            value: cell.value === value ? null : value,
-          };
-          
-          // Check if this update would complete the puzzle
-          if (isPuzzleComplete(updatedGrid) && !isCheckingCompletion) {
-            setIsCheckingCompletion(true);
-            setTimeout(() => {
-              checkCompletion();
-            }, 1000);
-          }
-        }
-      }
-    }
-  };
-  
-  // Handle clear cell
-  const handleClearCell = () => {
-    clearCellValue();
-  };
-  
-  // Handle restart
-  const handleRestart = () => {
-    restartGame();
-  };
-  
-  // Handle tip
-  const handleTip = () => {
-    // Show tip modal instead of directly using tip
-    setTipModalVisible(true);
-  };
-  
-  // Handle tip from modal
-  const handleUseTip = (usePoints: boolean) => {
-    setTipModalVisible(false);
-    
-    const result = useTip(usePoints);
-    
-    if (!result.success) {
-      setAlertMessage('You need 30 points to use a tip.');
-      setAlertVisible(true);
-      return;
-    }
-    
-    if (Platform.OS !== 'web') {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-    }
-    
-    if (result.incorrectCells && result.incorrectCells.length === 0) {
-      setAlertMessage('Everything is correct so far!');
-      setAlertVisible(true);
-    } else if (result.incorrectCells) {
-      const itemName = 
-        variant === 'numerical' ? 'numbers' : 
-        variant === 'color' ? 'colours' : 
-        variant === 'emoji' ? 'emojis' : 'flags';
-      
-      setAlertMessage(
-        `${result.incorrectCells.length} ${itemName} ${result.incorrectCells.length === 1 ? 'is' : 'are'} in the wrong place.`
-      );
-      setAlertVisible(true);
-    }
-  };
-  
-  // Handle play again
-  const handlePlayAgain = () => {
-    setSuccessModalVisible(false);
-    restartGame();
-  };
-  
-  // Handle back to menu
-  const handleBackToMenu = () => {
-    setSuccessModalVisible(false);
-    router.back();
-  };
-  
-  // Close alert handler
-  const handleCloseAlert = () => {
-    setAlertVisible(false);
-  };
-  
-  // Handle points info
-  const handlePointsInfo = () => {
-    setPointsAlertVisible(true);
-  };
-  
-  // Handle points modal close
-  const handlePointsModalClose = () => {
-    setPointsModalVisible(false);
-    setSuccessModalVisible(true);
-  };
-  
-  if (!currentGame) {
-    return null;
-  }
-  
+
+  const inputOptions = type === "numerical" ? [1, 2, 3, 4, 5, 6, 7, 8, 9] :
+                      type === "colour" ? ["red", "blue", "green", "yellow"] :
+                      type === "emoji" ? ["😊", "⭐", "🌟", "💖"] :
+                      ["1F1E6", "1F1E7", "1F1E8", "1F1E9"];
+
   return (
-    <>
-      {/* Hide the header */}
-      <Stack.Screen options={{ headerShown: false }} />
-      
-      <SafeAreaView style={[styles.container, { backgroundColor: theme.backgroundColor }]}>
-        <StatusBar style={theme.id === 'default' ? 'dark' : 'light'} />
-        
-        <GameHeader
-          timer={currentGame.timer}
-          points={points}
-          onRestart={handleRestart}
-          onTip={handleTip}
-          onPointsPress={handlePointsInfo}
-        />
-        
-        <View style={styles.gameContainer}>
-          <SudokuGrid
-            grid={currentGame.grid}
-            variant={variant}
-            size={size}
-            selectedCell={currentGame.selectedCell}
-            onCellPress={handleCellPress}
-          />
-          
-          <InputKeypad
-            variant={variant}
-            size={size}
-            onValueSelect={handleValueSelect}
-            onClearCell={handleClearCell}
-          />
-        </View>
-        
-        {completionData && (
-          <>
-            {/* First modal: Points earned */}
-            <CustomAlert
-              visible={pointsModalVisible}
-              title="Congratulations!"
-              message={`You completed the puzzle in ${completionData.time} seconds! You earned ${completionData.pointsEarned} points. Your total is now ${points} points.${completionData.isPersonalBest ? ' This is your new personal best!' : ''}`}
-              type="success"
-              onClose={handlePointsModalClose}
-            />
-            
-            {/* Second modal: Play again or back to menu */}
-            <SuccessModal
-              visible={successModalVisible}
-              time={completionData.time}
-              pointsEarned={completionData.pointsEarned}
-              isPersonalBest={completionData.isPersonalBest}
-              onPlayAgain={handlePlayAgain}
-              onBackToMenu={handleBackToMenu}
-            />
-          </>
+    <SafeAreaView style={styles.container}>
+      <FlatList
+        data={grid}
+        renderItem={({ item: row, index: rowIndex }) => (
+          <View style={styles.row}>
+            {row.map((cell: Cell, colIndex: number) => (
+              <TouchableOpacity
+                key={colIndex}
+                onPress={() => setSelectedCell({ row: rowIndex, col: colIndex })}
+                style={[
+                  styles.cell,
+                  { width: 300 / size, height: 300 / size },
+                  selectedCell?.row === rowIndex && selectedCell?.col === colIndex ? styles.selectedCell : null,
+                ]}
+              >
+                <Text style={styles.cellText}>{renderCellValue(cell)}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
         )}
-        
-        <CustomAlert
-          visible={alertVisible}
-          title={alertMessage.includes('incorrect') ? 'Check Your Answers' : 'Tip'}
-          message={alertMessage}
-          type={alertMessage.includes('incorrect') ? 'warning' : 'info'}
-          onClose={handleCloseAlert}
-        />
-        
-        <CustomAlert
-          visible={pointsAlertVisible}
-          title="Your Points"
-          message={`You have ${points} points! Earn more by completing Sudoku puzzles or buy them in the Shop.`}
-          type="info"
-          onClose={() => setPointsAlertVisible(false)}
-        />
-        
-        <TipModal
-          visible={tipModalVisible}
-          points={points}
-          onUseTip={handleUseTip}
-          onCancel={() => setTipModalVisible(false)}
-        />
-      </SafeAreaView>
-    </>
+        keyExtractor={(_, index) => index.toString()}
+      />
+      <View style={styles.numberPad}>
+        {inputOptions.map((value) => (
+          <TouchableOpacity
+            key={value}
+            onPress={() => {
+              if (selectedCell) {
+                setNumber(selectedCell.row, selectedCell.col, value);
+                checkGame();
+              }
+            }}
+            style={styles.numberButton}
+          >
+            <Text style={styles.numberText}>{type === "colour" ? <View style={{ backgroundColor: value, width: 20, height: 20 }} /> : value}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+      <Button title="Tip" onPress={() => setShowTipModal(true)} />
+      <SuccessModal />
+      <TipModal visible={showTipModal} onClose={() => setShowTipModal(false)} />
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  gameContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingBottom: Platform.OS === 'ios' ? 20 : 0,
-    paddingTop: 10, // Add padding to prevent overlap with header
-  },
+  container: { flex: 1, alignItems: "center", justifyContent: "center" },
+  row: { flexDirection: "row" },
+  cell: { borderWidth: 1, borderColor: "#000", alignItems: "center", justifyContent: "center" },
+  selectedCell: { backgroundColor: "#ddd" },
+  cellText: { fontSize: 18 },
+  numberPad: { flexDirection: "row", flexWrap: "wrap", marginTop: 20 },
+  numberButton: { padding: 10, margin: 5, backgroundColor: "#eee" },
+  numberText: { fontSize: 18 },
 });
