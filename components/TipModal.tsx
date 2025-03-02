@@ -1,6 +1,6 @@
-import { Modal, View, Text, Button, StyleSheet, Platform } from "react-native"; // Added Platform
+import { Modal, View, Text, Button, StyleSheet, Platform } from "react-native";
 import { useGameStore } from "../store/game-store";
-import Vibration from "react-native-vibration";
+import * as Haptics from "expo-haptics"; // Replaced Vibration
 
 interface TipModalProps {
   visible: boolean;
@@ -12,13 +12,13 @@ export default function TipModal({ visible, onClose }: TipModalProps) {
 
   const handlePoints = () => {
     useHint();
-    if (Platform.OS !== "web") Vibration.vibrate(300); // Skip on web
+    if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); // Updated
     onClose();
   };
 
   const handleAd = () => {
     // Placeholder for ad logic
-    if (Platform.OS !== "web") Vibration.vibrate(300); // Skip on web
+    if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); // Updated
     onClose();
   };
 

@@ -1,8 +1,8 @@
 import { Modal, View, Text, Button, StyleSheet, Platform } from "react-native";
 import { useGameStore } from "../store/game-store";
 import { useState, useEffect } from "react";
-import Vibration from "react-native-vibration";
-import { router, Link } from "expo-router"; // Added Link import for type safety
+import * as Haptics from "expo-haptics"; // Replaced Vibration
+import { router } from "expo-router";
 
 export default function SuccessModal() {
   const { gameWon, resetGame, points, size, gameTime, personalBest } = useGameStore();
@@ -10,7 +10,7 @@ export default function SuccessModal() {
   const reward = pointRewards[size] + (gameTime < personalBest[size] ? 10 : 0);
 
   useEffect(() => {
-    if (gameWon && Platform.OS !== "web") Vibration.vibrate(500); // Skip on web
+    if (gameWon && Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); // Updated
   }, [gameWon]);
 
   if (!gameWon) return null;
@@ -35,10 +35,7 @@ export default function SuccessModal() {
           <View style={styles.modalContent}>
             <Button 
               title="Exit to Menu" 
-              onPress={() => { 
-                router.push("/index" as any); // Type assertion to bypass strict typing
-                setShowOptions(false); 
-              }} 
+              onPress={() => { router.push("/index" as any); setShowOptions(false); }} 
             />
             <Button 
               title="Play Again" 

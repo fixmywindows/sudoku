@@ -1,7 +1,7 @@
 import { useGameStore, Cell } from "../store/game-store";
-import { FlatList, SafeAreaView, StyleSheet, Text, TouchableOpacity, View, Modal, Button, Platform } from "react-native"; // Added Platform
+import { FlatList, SafeAreaView, StyleSheet, Text, TouchableOpacity, View, Modal, Button, Platform } from "react-native";
 import { useState, useEffect } from "react";
-import Vibration from "react-native-vibration";
+import * as Haptics from "expo-haptics"; // Replaced Vibration
 import SuccessModal from "../components/SuccessModal";
 import TipModal from "../components/TipModal";
 
@@ -16,7 +16,7 @@ export default function Game() {
   }, []);
 
   useEffect(() => {
-    if (mistakes > 0 && Platform.OS !== "web") Vibration.vibrate(200); // Skip on web
+    if (mistakes > 0 && Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); // Updated
   }, [mistakes]);
 
   const renderCellValue = (cell: Cell) => {
